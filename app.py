@@ -13,7 +13,7 @@ svm_model, lda_model, scaler, label_names = load_models()
 @app.route('/', methods=['GET', 'POST'])
 def index():
 
-    os.makedirs(app.congfig['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     for fname in os.listdir(app.config['UPLOAD_FOLDER']):
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], fname)
