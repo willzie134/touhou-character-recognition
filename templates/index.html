@@ -9,6 +9,22 @@
       background-image: url("{{ url_for('static', filename='bg.png') }}");
       background-repeat: no-repeat;
       background-size: cover;
+      position: relative;
+    }
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.5);
+        z-index: 0;
+        pointer-events: none;
+    }
+    .container-fluid, .col-left {
+      position: relative;
+      z-index: 1;
     }
 
     #preview {
@@ -43,10 +59,6 @@
     .spinner-area {
       display: none;
       text-align: center;
-      margin-top: 40px;
-    }
-    .col-left{
-      background-color: white;
     }
   </style>
 </head>
@@ -54,8 +66,8 @@
 
 <div class="container-fluid">
   <div class="row">
-    <!-- Left Column -->
-    <div class="col-md-6 py-4 col-left">
+
+    <div class="col-md-6 p-4 card">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h5>Input</h5>
         <button class="btn btn-outline-primary btn-sm" id="toggleMode">Switch to Preview</button>
@@ -69,7 +81,7 @@
         </div>
 
         <!-- Image Preview -->
-        <img id="preview" src="{{ image_file if image_file else '#' }}" class="img-fluid" style="display: none;">
+        <img id="preview" src="{{ image_file if image_file else '#' }}" class="img-fluid" style="display: none; opacity: 1.0;">
 
         <!-- Threshold Slider -->
         <label for="threshold" class="form-label mt-3">Confidence Threshold: <span id="thresh-value">0.5</span></label>
@@ -82,41 +94,49 @@
     <!-- Right Column -->
     <div class="col-md-6 col-left">
       <!-- Loading Spinner -->
-      <div id="spinner" class="spinner-area">
+      <div id="spinner" class="spinner-area card p-4 mb-2">
         <div class="spinner-border text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="mt-2">Analyzing image...</p>
+        <p>Analyzing image...</p>
       </div>
+      <div id="result-space">
+        {% if predictions %}
+        <div class="accordion" id="resultsAccordion">
+          {% for face in predictions %}
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="heading{{ face.face_id }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ face.face_id }}">
+                  Face {{ face.face_id }} — {{ face.predictions[0][0] }}
+                  {% if not face.is_confident %}
+                    <span class="badge bg-warning text-dark ms-2">Low Confidence</span>
+                  {% endif %}
+                </button>
+              </h2>
+              <div id="collapse{{ face.face_id }}" class="accordion-collapse collapse" data-bs-parent="#resultsAccordion">
+                <div class="accordion-body">
+                  {% for name, prob in face.predictions %}
+                    <div class="confidence-label">{{ name }} {{ (prob * 100)|round(1) }}%</div>
+                    <div class="progress mb-3" style="height: 8px;">
+                      <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{ (prob * 100)|round(1) }}%;" aria-valuenow="{{ (prob * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
 
-      {% if predictions %}
-      <div class="accordion mt-3" id="resultsAccordion">
-        {% for face in predictions %}
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="heading{{ face.face_id }}">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ face.face_id }}">
-                Face {{ face.face_id }} — {{ face.predictions[0][0] }}
-                {% if not face.is_confident %}
-                  <span class="badge bg-warning text-dark ms-2">Low Confidence</span>
-                {% endif %}
-              </button>
-            </h2>
-            <div id="collapse{{ face.face_id }}" class="accordion-collapse collapse" data-bs-parent="#resultsAccordion">
-              <div class="accordion-body">
-                {% for name, prob in face.predictions %}
-                  <div class="confidence-label">{{ name }}</div>
-                  <div class="progress mb-3">
-                    <div class="progress-bar" role="progressbar" style="width: {{ (prob * 100)|round(1) }}%;" aria-valuenow="{{ (prob * 100)|round(1) }}" aria-valuemin="0" aria-valuemax="100">
-                      {{ (prob * 100)|round(1) }}%
+                      </div>
                     </div>
-                  </div>
-                {% endfor %}
+                  {% endfor %}
+                </div>
               </div>
             </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if not predictions %}
+          <div class="card p-4 text-center">
+            <h5>No predictions yet or maybe no face detected.</h5>
+            <p>Upload an image and click Analyze to see results.<br>
+            Make sure the image has the character's face so the model can recognize it.</p>
           </div>
-        {% endfor %}
+        {% endif %}
       </div>
-      {% endif %}
     </div>
   </div>
 </div>
@@ -127,6 +147,7 @@
   const input = document.getElementById("imageInput");
   const dropzone = document.getElementById("dropzone");
   const preview = document.getElementById("preview");
+  const resultSpace = document.getElementById("result-space")
   const thresholdSlider = document.getElementById("threshold");
   const thresholdValue = document.getElementById("thresh-value");
   const toggleBtn = document.getElementById("toggleMode");
@@ -180,6 +201,7 @@
   // Show spinner on submit
   form.addEventListener("submit", () => {
     spinner.style.display = "block";
+    resultSpace.style.display = "none";
   });
 </script>
 </body>
